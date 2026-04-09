@@ -17,7 +17,7 @@ class CallHandler:
         logger.info(f"Starting call for user: {user_id}")
         self.active = True
 
-        tts.speak("Hello! I'm your university AI assistant. How can I help you today?")
+        tts.speak("Assalam o Alaikum! GIFT University mein khush aamdeed. Main aapka admission assistant hoon. Aap mujhse admission, programs, fees, ya kisi bhi cheez ke baare mein pooch sakte hain. Batayein, main aapki kya madad kar sakta hoon?")
 
         while self.active:
             user_input = stt.listen()
@@ -25,8 +25,8 @@ class CallHandler:
             if not user_input:
                 continue
 
-            if "goodbye" in user_input.lower() or "exit" in user_input.lower():
-                tts.speak("Goodbye! Have a great day!")
+            if "goodbye" in user_input.lower() or "exit" in user_input.lower() or "khuda hafiz" in user_input.lower() or "shukriya" in user_input.lower():
+                tts.speak("Shukriya GIFT University ko call karne ka. Allah Hafiz, aur aapka future bright ho!")
                 self.stop_call()
                 break
 
