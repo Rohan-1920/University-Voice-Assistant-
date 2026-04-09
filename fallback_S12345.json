@@ -1,0 +1,12 @@
+[
+  {
+    "timestamp": "2026-04-08T13:17:54.466567",
+    "user_query": "What is Python?",
+    "ai_response": "Python is a high-level programming language."
+  },
+  {
+    "timestamp": "2026-04-08T13:17:54.514241",
+    "user_query": "How do I use loops?",
+    "ai_response": "Use for loops to iterate over sequences."
+  }
+]
