@@ -5,19 +5,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def _build_db_url() -> str:
-    """Build properly encoded DATABASE_URL from components"""
+    """Build properly encoded DATABASE_URL — handles special chars in password"""
     raw = os.getenv("DATABASE_URL", "")
     if not raw:
         return ""
-    # If URL has special chars in password, encode them
     try:
-        # Extract password between : and @ and encode it
-        prefix = "postgresql://postgres:"
-        suffix_start = raw.index("@db.")
-        password = raw[len(prefix):suffix_start]
-        host_part = raw[suffix_start:]
+        # Format: postgresql://user:password@host:port/db
+        # Find user:password part
+        after_scheme = raw[len("postgresql://"):]
+        at_pos = after_scheme.rfind("@")  # last @ = host separator
+        user_pass = after_scheme[:at_pos]
+        host_part = after_scheme[at_pos:]  # @host:port/db
+
+        colon_pos = user_pass.index(":")
+        user = user_pass[:colon_pos]
+        password = user_pass[colon_pos+1:]
+
         encoded_password = quote_plus(password)
-        return f"{prefix}{encoded_password}{host_part}"
+        return f"postgresql://{user}:{encoded_password}{host_part}"
     except Exception:
         return raw
 
@@ -28,8 +33,9 @@ class Config:
     DATABASE_URL = _build_db_url()
 
     # AI
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    AI_MODEL = os.getenv("AI_MODEL", "gpt-3.5-turbo")
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # legacy, not used
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    AI_MODEL = os.getenv("AI_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
     # Voice
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")

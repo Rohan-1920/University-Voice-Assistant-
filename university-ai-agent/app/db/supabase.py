@@ -1,5 +1,7 @@
+import json
 import psycopg2
 import psycopg2.extras
+from psycopg2 import pool as pg_pool
 from typing import Dict, List, Any
 from app.core.config import config
 from app.core.logger import logger
@@ -7,36 +9,71 @@ from app.db.models import CallLog, UserSession
 
 
 class SupabaseDB:
-    """Database interface using direct PostgreSQL connection"""
+    """Database interface with connection pooling — thread-safe, no reconnect on every query"""
+
+    # min=2 idle connections always ready, max=10 under heavy load
+    _MIN_CONN = 2
+    _MAX_CONN = 10
 
     def __init__(self):
-        self.conn = None
+        self._pool: pg_pool.ThreadedConnectionPool = None
+        self._init_pool()
 
-    def connect(self):
-        """Initialize PostgreSQL connection"""
+    def _init_pool(self):
+        """Initialize the connection pool once at startup"""
         if not config.DATABASE_URL:
-            raise ValueError("DATABASE_URL is not set in .env file")
-        self.conn = psycopg2.connect(config.DATABASE_URL)
-        self.conn.autocommit = True
-        logger.info("PostgreSQL connected")
-
-    def _get_conn(self):
-        if not self.conn or self.conn.closed:
-            self.connect()
-        return self.conn
+            logger.warning("DATABASE_URL not set — DB features disabled")
+            return
+        try:
+            self._pool = pg_pool.ThreadedConnectionPool(
+                self._MIN_CONN,
+                self._MAX_CONN,
+                config.DATABASE_URL,
+                connect_timeout=10
+            )
+            logger.info(f"DB pool ready (min={self._MIN_CONN}, max={self._MAX_CONN})")
+        except Exception as e:
+            logger.warning(f"DB pool unavailable (running without DB): {e}")
+            self._pool = None
 
     def _execute(self, query: str, params=None) -> List[Dict]:
-        """Execute query and return results as list of dicts"""
+        """
+        Borrow a connection from pool → execute → return to pool.
+        Pool handles reuse automatically — no reconnect overhead.
+        """
+        if not self._pool:
+            logger.warning("DB pool unavailable, skipping query")
+            return []
+
+        conn = None
         try:
-            with self._get_conn().cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            conn = self._pool.getconn()
+            conn.autocommit = True
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(query, params)
                 if cur.description:
                     return [dict(row) for row in cur.fetchall()]
                 return []
         except Exception as e:
             logger.error(f"Query error: {e}")
-            self.conn = None  # reset connection on error
+            # Mark connection as broken so pool discards it
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = None
             return []
+        finally:
+            # Always return connection to pool (even on error)
+            if conn and self._pool:
+                self._pool.putconn(conn)
+
+    def close(self):
+        """Gracefully close all pool connections (call on app shutdown)"""
+        if self._pool:
+            self._pool.closeall()
+            logger.info("DB pool closed")
 
     # ── Admission Data Queries ──────────────────────────────────────
 
@@ -133,8 +170,10 @@ class SupabaseDB:
         try:
             data = CallLog.create(user_id, query, response, intent)
             self._execute(
-                "INSERT INTO call_logs (user_id, query, response, intent, timestamp, created_at) VALUES (%s,%s,%s,%s,%s,%s)",
-                (data["user_id"], data["query"], data["response"], data["intent"], data["timestamp"], data["created_at"])
+                "INSERT INTO call_logs (user_id, query, response, intent, timestamp, created_at) "
+                "VALUES (%s,%s,%s,%s,%s,%s)",
+                (data["user_id"], data["query"], data["response"],
+                 data["intent"], data["timestamp"], data["created_at"])
             )
             logger.info(f"Logged call for user: {user_id}")
             return True
@@ -142,19 +181,25 @@ class SupabaseDB:
             logger.error(f"Failed to log call: {e}")
             return False
 
-    def get_user_history(self, user_id: str, limit: int = 10) -> List[Dict]:
+    def get_user_history(self, user_id: str = None, limit: int = 10) -> List[Dict]:
+        if user_id and user_id != "all":
+            return self._execute(
+                "SELECT * FROM call_logs WHERE user_id=%s ORDER BY created_at DESC LIMIT %s",
+                (user_id, limit)
+            )
         return self._execute(
-            "SELECT * FROM call_logs WHERE user_id=%s ORDER BY created_at DESC LIMIT %s",
-            (user_id, limit)
+            "SELECT * FROM call_logs ORDER BY created_at DESC LIMIT %s",
+            (limit,)
         )
 
     def save_session(self, user_id: str, session_data: Dict[str, Any]) -> bool:
         try:
-            import json
             data = UserSession.create(user_id, session_data)
             self._execute(
-                "INSERT INTO user_sessions (user_id, session_data, started_at, last_activity) VALUES (%s,%s,%s,%s)",
-                (data["user_id"], json.dumps(data["session_data"]), data["started_at"], data["last_activity"])
+                "INSERT INTO user_sessions (user_id, session_data, started_at, last_activity) "
+                "VALUES (%s,%s,%s,%s)",
+                (data["user_id"], json.dumps(data["session_data"]),
+                 data["started_at"], data["last_activity"])
             )
             return True
         except Exception as e:

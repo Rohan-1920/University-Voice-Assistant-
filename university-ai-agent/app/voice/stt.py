@@ -4,17 +4,19 @@ import pyaudio
 from faster_whisper import WhisperModel
 from app.core.logger import logger
 
+
 class SpeechToText:
-    """Convert speech to text using faster-whisper (Python 3.13 compatible)"""
+    """Convert speech to text using faster-whisper — supports Urdu & English"""
 
     def __init__(self):
-        # Using tiny model for speed; change to "base" or "small" for better accuracy
-        self.model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        # "small" model supports Urdu/multilingual properly
+        # "tiny" was too weak for Urdu — upgraded to "small"
+        self.model = WhisperModel("small", device="cpu", compute_type="int8")
         self.audio = pyaudio.PyAudio()
         self.sample_rate = 16000
         self.chunk = 1024
         self.channels = 1
-        self.record_seconds = 5
+        self.record_seconds = 7  # slightly longer for Urdu sentences
 
     def _record_audio(self) -> bytes:
         """Record audio from microphone"""
@@ -45,13 +47,30 @@ class SpeechToText:
         buf.seek(0)
         return buf
 
+    def _detect_and_transcribe(self, audio_source) -> str:
+        """
+        Auto-detect language (Urdu or English) and transcribe.
+        Whisper detects language from first 30s of audio automatically
+        when language=None is passed.
+        """
+        segments, info = self.model.transcribe(
+            audio_source,
+            language=None,          # auto-detect: Urdu (ur) or English (en)
+            beam_size=5,
+            vad_filter=True,        # skip silent parts
+            vad_parameters=dict(min_silence_duration_ms=500)
+        )
+        detected_lang = info.language
+        confidence = round(info.language_probability * 100, 1)
+        logger.info(f"Detected language: {detected_lang} ({confidence}% confidence)")
+        return " ".join(seg.text for seg in segments).strip()
+
     def listen(self) -> str:
-        """Listen to microphone and convert to text"""
+        """Listen to microphone and convert to text (Urdu + English)"""
         try:
             audio_bytes = self._record_audio()
             wav_buf = self._bytes_to_wav(audio_bytes)
-            segments, _ = self.model.transcribe(wav_buf, language="en")
-            text = " ".join(seg.text for seg in segments).strip()
+            text = self._detect_and_transcribe(wav_buf)
             logger.info(f"Recognized: {text}")
             return text
         except Exception as e:
@@ -59,14 +78,14 @@ class SpeechToText:
             return ""
 
     def from_audio_file(self, file_path: str) -> str:
-        """Convert audio file to text"""
+        """Convert audio file to text (Urdu + English)"""
         try:
-            segments, _ = self.model.transcribe(file_path, language="en")
-            text = " ".join(seg.text for seg in segments).strip()
+            text = self._detect_and_transcribe(file_path)
             logger.info(f"Transcribed from file: {text}")
             return text
         except Exception as e:
             logger.error(f"File transcription error: {e}")
             return ""
+
 
 stt = SpeechToText()
