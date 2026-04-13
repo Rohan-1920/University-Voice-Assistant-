@@ -90,7 +90,8 @@ STRICT RULES:
 - NEVER say "thank you", "shukriya", "goodbye", "Allah Hafiz" mid-conversation
 - NEVER greet again after first greeting — student is already on the call
 - Keep response to 1-2 sentences MAX — this is a voice call
-- Give direct specific answer — no bullet points, no lists
+- NEVER use bullet points, numbers, or lists — speak in flowing sentences only
+- Convert any list into natural sentence e.g. "You need matric certificate, CNIC, and photos"
 - Only say contact number if info is truly not available"""
 
 INTENT_CLASSIFICATION_PROMPT = """Classify the user's query into one of these categories:

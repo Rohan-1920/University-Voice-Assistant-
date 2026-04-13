@@ -34,9 +34,9 @@ def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> str:
             headers={"Authorization": f"Bearer {config.GROQ_API_KEY}"},
             files={"file": (filename, audio_bytes, "audio/webm")},
             data={
-                "model": "whisper-large-v3-turbo",  # fastest multilingual model
-                "response_format": "text"
-                # no language param = auto-detect Urdu/English
+                "model": "whisper-large-v3-turbo",
+                "response_format": "text",
+                "prompt": "This is a university helpdesk call. Student speaks Urdu or English only."
             },
             timeout=15
         )
