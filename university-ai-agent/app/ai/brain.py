@@ -42,7 +42,7 @@ class AIBrain:
                 r = requests.post(
                     GROQ_API_URL,
                     headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                    json={"model": self.model, "messages": messages, "temperature": 0.3, "max_tokens": max_tokens},
+                    json={"model": self.model, "messages": messages, "temperature": 0.1, "max_tokens": max_tokens},
                     timeout=20,
                 )
                 if r.status_code == 200:

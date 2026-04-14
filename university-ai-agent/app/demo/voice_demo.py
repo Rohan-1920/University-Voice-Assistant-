@@ -36,7 +36,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> str:
             data={
                 "model": "whisper-large-v3-turbo",
                 "response_format": "text",
-                "prompt": "This is a university helpdesk call. Student speaks Urdu or English only."
+                "prompt": "This is a Pakistani university helpdesk. Student speaks Urdu or English. Transcribe in Urdu script if Urdu is spoken, not Hindi."
             },
             timeout=15
         )

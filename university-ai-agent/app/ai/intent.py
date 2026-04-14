@@ -42,7 +42,7 @@ class IntentClassifier:
                     json={
                         "model": self.model,
                         "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.3,
+                        "temperature": 0.0,
                         "max_tokens": 50
                     },
                     timeout=15
