@@ -1,51 +1,64 @@
-export default function ChatBubble({ message }) {
+const INTENT_COLORS = {
+  programs: '#8b5cf6', fee: '#10b981', admission_process: '#3b82f6',
+  eligibility: '#f59e0b', documents: '#ec4899', dates: '#06b6d4',
+  scholarship: '#c9a84c', hostel: '#84cc16', transport: '#f97316',
+  contact: '#6b7280', general: '#6b7280',
+}
+
+export default function ChatBubble({ message, dark = true }) {
   const isUser = message.role === 'user'
+  const intentColor = INTENT_COLORS[message.intent] || '#6b7280'
 
   return (
-    <div className={`flex animate-slide-up ${isUser ? 'justify-end' : 'justify-start'} mb-2`}>
+    <div className="slide-up" style={{
+      display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start',
+      marginBottom: 10, alignItems: 'flex-end', gap: 8,
+    }}>
       {!isUser && (
-        <div className="w-6 h-6 rounded-full flex-shrink-0 mr-2 mt-1 flex items-center justify-center text-xs font-bold"
-             style={{ background: 'linear-gradient(135deg, #1e3a5f, #c9a84c)', color: 'white' }}>
-          G
-        </div>
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #1e3a5f, #c9a84c)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 700, color: 'white',
+          boxShadow: '0 2px 8px rgba(201,168,76,0.2)',
+        }}>G</div>
       )}
 
-      <div className="max-w-[75%]">
-        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-          isUser
-            ? 'rounded-tr-sm text-white'
-            : 'rounded-tl-sm text-white/90'
-        }`}
-          style={{
-            background: isUser
-              ? 'linear-gradient(135deg, #2563eb, #1d4ed8)'
-              : 'rgba(255,255,255,0.08)',
-            border: isUser ? 'none' : '1px solid rgba(255,255,255,0.08)',
-            boxShadow: isUser ? '0 4px 12px rgba(37,99,235,0.3)' : 'none',
-          }}>
+      <div style={{ maxWidth: '76%' }}>
+        <div style={{
+          padding: '10px 14px', borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+          fontSize: 13.5, lineHeight: 1.6,
+          background: isUser
+            ? 'linear-gradient(135deg, #1d4ed8, #2563eb)'
+            : 'rgba(255,255,255,0.07)',
+          border: isUser ? 'none' : '1px solid rgba(255,255,255,0.08)',
+          color: isUser ? '#fff' : 'rgba(255,255,255,0.92)',
+          boxShadow: isUser ? '0 4px 16px rgba(37,99,235,0.25)' : 'none',
+        }}>
           {message.text}
         </div>
 
-        {message.intent && !isUser && (
-          <div className="mt-1 ml-1">
-            <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c' }}>
-              {message.intent}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+          {!isUser && message.intent && message.intent !== 'unknown' && (
+            <span style={{
+              fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 500,
+              background: `${intentColor}18`, color: intentColor,
+              border: `1px solid ${intentColor}30`,
+            }}>
+              {message.intent.replace('_', ' ')}
             </span>
-          </div>
-        )}
-
-        <div className={`text-xs mt-1 ${isUser ? 'text-right' : 'text-left'}`}
-             style={{ color: 'rgba(255,255,255,0.3)' }}>
-          {message.time}
+          )}
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>{message.time}</span>
         </div>
       </div>
 
       {isUser && (
-        <div className="w-6 h-6 rounded-full flex-shrink-0 ml-2 mt-1 flex items-center justify-center text-xs font-bold"
-             style={{ background: 'rgba(37,99,235,0.3)', color: '#93c5fd' }}>
-          U
-        </div>
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+          background: 'rgba(37,99,235,0.25)', border: '1px solid rgba(37,99,235,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 700, color: '#93c5fd',
+        }}>U</div>
       )}
     </div>
   )

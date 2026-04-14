@@ -14,9 +14,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.on_event("startup")
+async def startup():
+    """Preload RAG model at startup so first query is fast."""
+    try:
+        from rag.retriever import preload
+        preload(config.DATABASE_URL)
+        logger.info("RAG preloaded ✓")
+    except Exception as e:
+        logger.warning(f"RAG preload skipped: {e}")
+
 @app.on_event("shutdown")
 async def shutdown():
-    """Close DB pool gracefully on app shutdown"""
     db.close()
 
 app.add_middleware(

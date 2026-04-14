@@ -1,217 +1,113 @@
-# Calling Agent for University Students
+# GIFT University AI Helpdesk Assistant
 
-A voice-enabled call handling system with Supabase integration for university student support.
+An AI-powered voice helpdesk for GIFT University Gujranwala — students can ask about admissions, programs, fees, scholarships, and more in **Urdu or English**, and get instant accurate answers.
+
+---
+
+## Live Demo
+
+```
+http://localhost:3000
+```
+
+---
 
 ## Features
 
-- **Voice Call Handling** - Twilio webhook integration for incoming calls
-- **Speech-to-Text** - Automatic voice to text conversion
-- **AI Response** - Intelligent responses to student queries
-- **Text-to-Speech** - Voice responses via TwiML
-- **Database Storage** - Supabase PostgreSQL for conversation history
-- **Automatic Fallback** - Local storage if DB fails
-- **Error Handling** - No crashes on empty input
-- **Fast Response** - Sub-second response times
-- **Retry Logic** - Automatic retry on failures
+- 🎙️ **Voice conversations** — speak naturally, no typing needed
+- 🌐 **Bilingual** — Urdu and English, auto-detected
+- ⚡ **Fast responses** — under 2 seconds
+- 🤖 **Groq AI + RAG** — LLaMA 4 with retrieval from real GIFT data
+- 📊 **Analytics dashboard** — real-time call logs with intent tracking
+- 🗄️ **Supabase** — all conversations stored with timestamp
 
-## Setup
+---
 
-1. Install dependencies:
-```bash
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite |
+| Backend | FastAPI (Python) |
+| AI Model | Groq LLaMA 4 Scout |
+| STT | Groq Whisper Large v3 Turbo |
+| TTS | Groq Orpheus v1 |
+| RAG | sentence-transformers + pgvector |
+| Database | Supabase PostgreSQL |
+| Styling | Inline CSS + Playfair Display font |
+
+---
+
+## Quick Start
+
+### 1. Backend
+
+```powershell
+cd university-ai-agent
 pip install -r requirements.txt
+python -m app.main
+# Runs on http://localhost:8000
 ```
 
-2. Configure environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your credentials:
-# - Supabase URL and Key
-# - Twilio Account SID, Auth Token, and Phone Number
+### 2. Frontend
+
+```powershell
+cd university-ui
+npm install
+npm run dev
+# Runs on http://localhost:3000
 ```
 
-3. Run the SQL schema in your Supabase project:
-```sql
--- Execute supabase_schema.sql in Supabase SQL Editor
+### 3. One-click start (Windows)
+
+Double-click `start.bat` in the root folder.
+
+---
+
+## Environment Variables
+
+Copy `university-ai-agent/.env.example` to `.env` and fill in:
+
+```env
+GROQ_API_KEY=gsk_...          # From console.groq.com (free)
+DATABASE_URL=postgresql://... # From Supabase dashboard
+SUPABASE_URL=https://...
+SUPABASE_KEY=sb_...
 ```
 
-4. Configure Twilio webhook:
-```
-Voice webhook URL: https://your-domain.com/voice/incoming
-Method: POST
-```
+---
 
-## Running the API
+## RAG Setup (One-time)
 
-```bash
-# Development
-python call_api.py
+```powershell
+cd university-ai-agent
+pip install sentence-transformers beautifulsoup4
 
-# Production
-uvicorn call_api:app --host 0.0.0.0 --port 8000
-```
+# Run schema in Supabase SQL Editor first:
+# rag/schema.sql
 
-## API Endpoints
-
-### POST /voice/incoming
-Handles incoming Twilio calls, prompts for speech input.
-
-**Response:** TwiML with speech gathering
-
-### POST /voice/process
-Processes speech input and returns AI response.
-
-**Parameters:**
-- `SpeechResult` (form) - Transcribed speech text
-- `From` (form) - Caller phone number
-
-**Response:** TwiML with AI voice response
-
-## Usage Example
-
-### Call Flow
-
-1. Student calls university number
-2. System greets: "Hello! I'm your university assistant. How can I help you?"
-3. Student speaks: "What are your office hours?"
-4. System responds: "Our office hours are Monday through Friday, 9 AM to 5 PM."
-5. System asks: "Anything else?"
-6. Conversation continues or ends
-
-## Supported Queries
-
-The AI can handle:
-- **Office Hours** - "What are your office hours?" / "When are you open?"
-- **Registration** - "How do I register for classes?" / "How do I enroll?"
-- **Tuition** - "How much is tuition?" / "Payment information?"
-- **Transcripts** - "How do I get my transcript?"
-- **General Help** - Fallback for other queries
-
-## Error Handling
-
-- **Empty Input** - Returns "I didn't catch that" message
-- **Database Failure** - Automatically falls back to local JSON storage
-- **AI Failure** - Retries up to 3 times with exponential backoff
-- **Network Issues** - Graceful error messages to caller
-
-## Testing
-
-```bash
-# Test call API
-python -m pytest test_call_api.py -v
-
-# Test Supabase integration
-python test_supabase.py
-
-# Test local memory system
-python test_memory.py
+# Then ingest GIFT University website data:
+python -m rag.ingest
 ```
 
-All tests pass with 100% success rate.
+---
 
-## Files
+## Project Structure
 
-- `call_api.py` - FastAPI call handling system
-- `supabase_memory.py` - Supabase integration with fallback
-- `memory_system.py` - Local memory system
-- `supabase_schema.sql` - PostgreSQL database schema
-- `test_call_api.py` - Call API tests
-- `test_supabase.py` - Supabase integration tests
-- `test_memory.py` - Local memory tests
-- `requirements.txt` - Python dependencies
-- `.env.example` - Environment variables template
+See `ARCHITECTURE.md` for a detailed diagram of every file and folder.
 
-## Architecture
+---
 
-```
-Incoming Call (Twilio)
-    ↓
-POST /voice/incoming
-    ↓
-Gather Speech Input
-    ↓
-POST /voice/process
-    ↓
-Speech → Text (Twilio)
-    ↓
-AI Processing (with retry)
-    ↓
-Save to Database (with fallback)
-    ↓
-Text → Speech (TwiML)
-    ↓
-Voice Response to Caller
-```
+## Pages
 
-```python
-from supabase_memory import SupabaseMemory
+| Route | Description |
+|---|---|
+| `/` | Home — landing page with features and info |
+| `/call` | Voice agent — talk to the AI |
+| `/statistics` | Admin dashboard — call logs and analytics |
 
-# Initialize
-memory = SupabaseMemory()
+---
 
-# Save conversation
-memory.save_conversation(
-    student_id="S12345",
-    user_query="What is Python?",
-    ai_response="Python is a programming language."
-)
+## Contact
 
-# Fetch history
-history = memory.fetch_history("S12345", limit=10)
-for conv in history:
-    print(f"Q: {conv['user_query']}")
-    print(f"A: {conv['ai_response']}")
-```
-
-### Local Storage (Fallback)
-
-```python
-from memory_system import ConversationMemory
-
-# Initialize
-memory = ConversationMemory()
-
-# Add conversation
-memory.add_conversation(
-    user_query="What is Python?",
-    ai_response="Python is a programming language."
-)
-
-# Get context
-context = memory.get_context()
-print(context)
-```
-
-## Database Schema
-
-### Tables
-
-- **students** - Student information (id, student_id, name, email)
-- **conversations** - Conversation history (student_id, user_query, ai_response)
-- **logs** - System logs (student_id, log_level, message, metadata)
-
-## Error Handling
-
-The system automatically falls back to local JSON storage if:
-- Supabase credentials are missing
-- Database connection fails
-- Any database operation errors occur
-
-## Testing
-
-```bash
-# Test local memory system
-python test_memory.py
-
-# Test Supabase integration
-python test_supabase.py
-```
-
-## Files
-
-- `supabase_memory.py` - Supabase integration with fallback
-- `memory_system.py` - Local memory system
-- `supabase_schema.sql` - PostgreSQL database schema
-- `test_supabase.py` - Supabase integration tests
-- `test_memory.py` - Local memory tests
-- `requirements.txt` - Python dependencies
-- `.env.example` - Environment variables template
+GIFT University Gujranwala · 055-111-GIFT-00 · [gift.edu.pk](https://gift.edu.pk)

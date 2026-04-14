@@ -1,308 +1,296 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 
-const INTENTS = ['All', 'admissions', 'fees', 'courses', 'faculty', 'hostel', 'general', 'other']
+const INTENT_COLORS = {
+  programs: '#8b5cf6', fee: '#10b981', admission_process: '#3b82f6',
+  eligibility: '#f59e0b', documents: '#ec4899', dates: '#06b6d4',
+  scholarship: '#c9a84c', hostel: '#84cc16', transport: '#f97316',
+  contact: '#6b7280', general: '#6b7280', unknown: '#4b5563',
+}
 
-function StatCard({ label, value, icon, accent }) {
+function fmt(iso) {
+  if (!iso) return { date: '—', time: '—' }
+  const d = new Date(iso)
+  if (isNaN(d)) return { date: '—', time: '—' }
+  return {
+    date: d.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }),
+    time: d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true }),
+  }
+}
+
+function StatCard({ label, value, icon, color, dark }) {
   return (
-    <div className="rounded-2xl p-4 flex items-center gap-4"
-         style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-           style={{ background: `${accent}22`, border: `1px solid ${accent}44` }}>
-        <span style={{ color: accent }}>{icon}</span>
-      </div>
+    <div style={{
+      background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+      border: `1px solid ${color}25`,
+      borderRadius: 20, padding: '24px 22px',
+      display: 'flex', alignItems: 'center', gap: 16,
+      transition: 'all 0.2s',
+      boxShadow: `0 4px 24px ${color}0a`,
+    }}>
+      <div style={{
+        width: 52, height: 52, borderRadius: 16, flexShrink: 0,
+        background: `${color}15`, border: `1px solid ${color}28`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>{icon}</div>
       <div>
-        <div className="text-2xl font-bold text-white">{value}</div>
-        <div className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{label}</div>
+        <div style={{
+          fontSize: 30, fontWeight: 900, lineHeight: 1,
+          color: dark ? '#fff' : '#1a1a2e',
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontStyle: 'italic',
+        }}>{value}</div>
+        <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', marginTop: 5, fontWeight: 500, letterSpacing: '0.02em' }}>{label}</div>
       </div>
     </div>
   )
 }
 
 function IntentBadge({ intent }) {
-  const colors = {
-    admissions: '#3b82f6',
-    fees: '#10b981',
-    courses: '#8b5cf6',
-    faculty: '#f59e0b',
-    hostel: '#ec4899',
-    general: '#6b7280',
-    other: '#6b7280',
-  }
-  const color = colors[intent?.toLowerCase()] || '#6b7280'
+  const color = INTENT_COLORS[intent?.toLowerCase()] || '#6b7280'
   return (
-    <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-          style={{ background: `${color}22`, color }}>
-      {intent || '—'}
+    <span style={{
+      padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600,
+      background: `${color}18`, color, border: `1px solid ${color}30`,
+      whiteSpace: 'nowrap',
+    }}>
+      {intent?.replace('_', ' ') || '—'}
     </span>
   )
 }
 
 export default function LogsPage({ dark }) {
-  const [logs, setLogs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [search, setSearch] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
-  const [intentFilter, setIntentFilter] = useState('All')
-  const [page, setPage] = useState(1)
-  const PER_PAGE = 15
+  const [logs, setLogs]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [search, setSearch]       = useState('')
+  const [dateFilter, setDate]     = useState('')
+  const [intentFilter, setIntent] = useState('All')
+  const [page, setPage]           = useState(1)
+  const [expanded, setExpanded]   = useState(null)
+  const PER_PAGE = 12
 
-  useEffect(() => {
-    fetchLogs()
-  }, [])
+  const bg      = dark ? '#0f0a1e' : '#f1f5f9'
+  const card    = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'
+  const border  = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'
+  const text    = dark ? 'rgba(255,255,255,0.9)'  : '#1e3a5f'
+  const sub     = dark ? 'rgba(255,255,255,0.4)'  : 'rgba(30,58,95,0.5)'
+  const inputBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'
 
-  async function fetchLogs() {
+  const fetchLogs = useCallback(async () => {
     setLoading(true)
-    setError(null)
     try {
-      const res = await fetch('/history/all?limit=100')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const res = await fetch('/history/all?limit=500')
+      if (!res.ok) throw new Error()
       const data = await res.json()
-      setLogs(Array.isArray(data) ? data : data.logs || [])
-    } catch (err) {
-      setError(err.message)
-      // Demo data for preview
-      setLogs(DEMO_LOGS)
+      const arr = Array.isArray(data) ? data : (data.history || data.logs || [])
+      setLogs(arr)
+    } catch {
+      setLogs([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Initial load + auto-refresh every 30s
+  useEffect(() => {
+    fetchLogs()
+    const interval = setInterval(fetchLogs, 30000)
+    return () => clearInterval(interval)
+  }, [fetchLogs])
 
   const today = new Date().toISOString().slice(0, 10)
 
   const stats = useMemo(() => {
     const todayLogs = logs.filter(l => (l.created_at || l.timestamp || '').startsWith(today))
-    const intentCounts = {}
-    logs.forEach(l => {
-      const i = l.intent || 'other'
-      intentCounts[i] = (intentCounts[i] || 0) + 1
-    })
-    const topIntent = Object.entries(intentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
-    return {
-      todayCount: todayLogs.length,
-      totalCount: logs.length,
-      topIntent,
-    }
+    const counts = {}
+    logs.forEach(l => { const i = l.intent || 'unknown'; counts[i] = (counts[i] || 0) + 1 })
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—'
+    const uniqueUsers = new Set(logs.map(l => l.user_id)).size
+    return { today: todayLogs.length, total: logs.length, top, users: uniqueUsers }
   }, [logs, today])
 
-  const filtered = useMemo(() => {
-    return logs.filter(l => {
-      const q = (l.query || l.transcript || '').toLowerCase()
-      const matchSearch = !search || q.includes(search.toLowerCase())
-      const matchDate = !dateFilter || (l.created_at || l.timestamp || '').startsWith(dateFilter)
-      const matchIntent = intentFilter === 'All' || (l.intent || '').toLowerCase() === intentFilter.toLowerCase()
-      return matchSearch && matchDate && matchIntent
-    })
-  }, [logs, search, dateFilter, intentFilter])
+  const intents = useMemo(() => ['All', ...new Set(logs.map(l => l.intent).filter(Boolean))], [logs])
+
+  const filtered = useMemo(() => logs.filter(l => {
+    const q = (l.query || '').toLowerCase()
+    return (
+      (!search || q.includes(search.toLowerCase())) &&
+      (!dateFilter || (l.created_at || l.timestamp || '').startsWith(dateFilter)) &&
+      (intentFilter === 'All' || l.intent === intentFilter)
+    )
+  }), [logs, search, dateFilter, intentFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
-  const handleSearch = (v) => { setSearch(v); setPage(1) }
-  const handleDate = (v) => { setDateFilter(v); setPage(1) }
-  const handleIntent = (v) => { setIntentFilter(v); setPage(1) }
-
-  const bg = dark ? '#0a0f1e' : '#e8edf5'
-  const cardBg = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
-  const border = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-  const text = dark ? 'rgba(255,255,255,0.85)' : '#1e3a5f'
-  const subtext = dark ? 'rgba(255,255,255,0.45)' : 'rgba(30,58,95,0.5)'
-  const inputBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+  const inputStyle = {
+    background: inputBg, color: text, border: `1px solid ${border}`,
+    borderRadius: 10, padding: '8px 12px', fontSize: 13, outline: 'none',
+    transition: 'border-color 0.2s',
+  }
 
   return (
-    <div className="min-h-screen p-4 md:p-8" style={{ background: bg }}>
-      <div className="max-w-6xl mx-auto">
+    <div style={{ minHeight: '100vh', background: bg, padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold" style={{ color: text }}>
-            Call Logs
-            <span className="ml-2 text-base font-normal" style={{ color: '#c9a84c' }}>Admin Dashboard</span>
-          </h1>
-          <p className="text-sm mt-1" style={{ color: subtext }}>
-            All voice interactions with the GIFT University AI agent
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatCard label="Calls Today" value={stats.todayCount} icon="📞" accent="#10b981" />
-          <StatCard label="Total Calls" value={stats.totalCount} icon="📊" accent="#c9a84c" />
-          <StatCard label="Top Intent" value={stats.topIntent} icon="🎯" accent="#3b82f6" />
-        </div>
-
-        {/* Filters */}
-        <div className="rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center"
-             style={{ background: cardBg, border: `1px solid ${border}` }}>
-
-          {/* Search */}
-          <div className="relative flex-1 min-w-48">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2" width="14" height="14"
-                 viewBox="0 0 24 24" fill="none" stroke={subtext} strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search queries..."
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-              className="w-full pl-8 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
-              style={{ background: inputBg, color: text, border: `1px solid ${border}` }}
-            />
+        <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: text, margin: 0, lineHeight: 1.2 }}>
+              Analytics
+              <span style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontStyle: 'italic',
+                color: '#a78bfa', fontWeight: 400, fontSize: 20, marginLeft: 10,
+              }}>Call Statistics</span>
+            </h1>
+            <p style={{ color: sub, fontSize: 13, marginTop: 6 }}>
+              Real-time conversation data · Auto-refreshes every 30s
+            </p>
           </div>
-
-          {/* Date */}
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={e => handleDate(e.target.value)}
-            className="px-3 py-2 rounded-xl text-sm outline-none"
-            style={{ background: inputBg, color: text, border: `1px solid ${border}` }}
-          />
-
-          {/* Intent filter */}
-          <select
-            value={intentFilter}
-            onChange={e => handleIntent(e.target.value)}
-            className="px-3 py-2 rounded-xl text-sm outline-none"
-            style={{ background: inputBg, color: text, border: `1px solid ${border}` }}>
-            {INTENTS.map(i => <option key={i} value={i}>{i}</option>)}
-          </select>
-
-          {/* Clear */}
-          {(search || dateFilter || intentFilter !== 'All') && (
-            <button
-              onClick={() => { setSearch(''); setDateFilter(''); setIntentFilter('All'); setPage(1) }}
-              className="px-3 py-2 rounded-xl text-sm transition-all hover:opacity-80"
-              style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-              Clear
-            </button>
-          )}
-
-          <button onClick={fetchLogs}
-                  className="px-3 py-2 rounded-xl text-sm transition-all hover:opacity-80 ml-auto"
-                  style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.2)' }}>
+          <button onClick={fetchLogs} style={{
+            padding: '8px 18px', borderRadius: 10, border: `1px solid rgba(124,58,237,0.3)`,
+            background: 'rgba(124,58,237,0.12)', color: '#a78bfa', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
             ↻ Refresh
           </button>
         </div>
 
-        {/* Table */}
-        <div className="rounded-2xl overflow-hidden"
-             style={{ background: cardBg, border: `1px solid ${border}` }}>
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+          <StatCard label="Calls Today"    value={stats.today} icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>} color="#a78bfa" dark={dark} />
+          <StatCard label="Total Calls"    value={stats.total} icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>} color="#7c3aed" dark={dark} />
+          <StatCard label="Unique Users"   value={stats.users} icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} color="#6d28d9" dark={dark} />
+          <StatCard label="Top Intent"     value={stats.top.replace('_',' ')} icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>} color="#a78bfa" dark={dark} />
+        </div>
 
+        {/* Filters */}
+        <div style={{
+          background: card, border: `1px solid ${border}`, borderRadius: 16,
+          padding: '16px 20px', marginBottom: 20,
+          display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
+        }}>
+          <div style={{ position: 'relative', flex: '1 1 200px' }}>
+            <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}
+                 width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={sub} strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text" placeholder="Search queries..."
+              value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+              style={{ ...inputStyle, width: '100%', paddingLeft: 30 }}
+            />
+          </div>
+
+          <input type="date" value={dateFilter}
+            onChange={e => { setDate(e.target.value); setPage(1) }}
+            style={{ ...inputStyle, colorScheme: dark ? 'dark' : 'light' }}
+          />
+
+          <select value={intentFilter} onChange={e => { setIntent(e.target.value); setPage(1) }}
+            style={{ ...inputStyle, cursor: 'pointer', colorScheme: dark ? 'dark' : 'light' }}>
+            {intents.map(i => <option key={i} value={i} style={{ background: dark ? '#1a1025' : '#fff', color: dark ? '#fff' : '#1a1a2e' }}>{i}</option>)}
+          </select>
+
+          {(search || dateFilter || intentFilter !== 'All') && (
+            <button onClick={() => { setSearch(''); setDate(''); setIntent('All'); setPage(1) }}
+              style={{ ...inputStyle, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer' }}>
+              ✕ Clear
+            </button>
+          )}
+
+          <span style={{ marginLeft: 'auto', color: sub, fontSize: 12 }}>
+            {filtered.length} results
+          </span>
+        </div>
+
+        {/* Table */}
+        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: 16, overflow: 'hidden' }}>
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 rounded-full border-2 border-gold/30 border-t-gold animate-spin" />
-            </div>
-          ) : error && logs.length === 0 ? (
-            <div className="text-center py-20" style={{ color: subtext }}>
-              <p className="text-4xl mb-3">⚠️</p>
-              <p>Could not connect to backend</p>
-              <p className="text-xs mt-1">{error}</p>
+            <div style={{ padding: '60px 0', textAlign: 'center' }}>
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="shimmer" style={{ height: 52, margin: '1px 0' }} />
+              ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-20" style={{ color: subtext }}>
-              <p className="text-4xl mb-3">🔍</p>
-              <p>No results found</p>
+            <div style={{ padding: '60px 0', textAlign: 'center', color: sub }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+              <div>No results found</div>
             </div>
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ borderBottom: `1px solid ${border}` }}>
-                      {['Date', 'Time', 'User ID', 'Query', 'Response', 'Intent'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 font-medium text-xs uppercase tracking-wider"
-                            style={{ color: subtext }}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginated.map((log, i) => {
-                      const dt = new Date(log.created_at || log.timestamp || Date.now())
-                      const dateStr = isNaN(dt) ? '—' : dt.toLocaleDateString()
-                      const timeStr = isNaN(dt) ? '—' : dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      return (
-                        <tr key={log.id || i}
-                            className="transition-colors hover:bg-white/5"
-                            style={{ borderBottom: `1px solid ${border}` }}>
-                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: subtext }}>{dateStr}</td>
-                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: subtext }}>{timeStr}</td>
-                          <td className="px-4 py-3">
-                            <span className="font-mono text-xs px-2 py-0.5 rounded"
-                                  style={{ background: 'rgba(255,255,255,0.06)', color: text }}>
-                              {(log.user_id || '—').slice(0, 12)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 max-w-xs">
-                            <p className="truncate" style={{ color: text }} title={log.query || log.transcript}>
-                              {log.query || log.transcript || '—'}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3 max-w-xs">
-                            <p className="truncate" style={{ color: subtext }} title={log.response}>
-                              {log.response || '—'}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <IntentBadge intent={log.intent} />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+              {/* Table header */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '110px 80px 100px 1fr 1fr 110px',
+                padding: '12px 20px', borderBottom: `1px solid ${border}`,
+                fontSize: 11, fontWeight: 700, color: sub, letterSpacing: '0.06em', textTransform: 'uppercase',
+              }}>
+                {['Date', 'Time', 'User', 'Query', 'Response', 'Intent'].map(h => (
+                  <div key={h}>{h}</div>
+                ))}
               </div>
 
-              {/* Mobile cards */}
-              <div className="md:hidden divide-y" style={{ borderColor: border }}>
-                {paginated.map((log, i) => {
-                  const dt = new Date(log.created_at || log.timestamp || Date.now())
-                  const dateStr = isNaN(dt) ? '—' : `${dt.toLocaleDateString()} ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                  return (
-                    <div key={log.id || i} className="p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: subtext }}>{dateStr}</span>
-                        <IntentBadge intent={log.intent} />
-                      </div>
-                      <p className="text-sm font-medium" style={{ color: text }}>
-                        {log.query || log.transcript || '—'}
-                      </p>
-                      <p className="text-xs line-clamp-2" style={{ color: subtext }}>
-                        {log.response || '—'}
-                      </p>
+              {/* Rows */}
+              {paginated.map((log, i) => {
+                const { date, time } = fmt(log.created_at || log.timestamp)
+                const isExp = expanded === (log.id || i)
+                return (
+                  <div key={log.id || i}
+                    onClick={() => setExpanded(isExp ? null : (log.id || i))}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '110px 80px 100px 1fr 1fr 110px',
+                      padding: '14px 20px', borderBottom: `1px solid ${border}`,
+                      cursor: 'pointer', transition: 'background 0.15s',
+                      background: isExp ? (dark ? 'rgba(201,168,76,0.05)' : 'rgba(201,168,76,0.04)') : 'transparent',
+                      alignItems: 'start',
+                    }}
+                    onMouseEnter={e => !isExp && (e.currentTarget.style.background = dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)')}
+                    onMouseLeave={e => !isExp && (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div style={{ fontSize: 12, color: sub }}>{date}</div>
+                    <div style={{ fontSize: 12, color: sub }}>{time}</div>
+                    <div>
+                      <span style={{
+                        fontFamily: 'monospace', fontSize: 11, padding: '2px 7px', borderRadius: 6,
+                        background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', color: text,
+                      }}>
+                        {(log.user_id || '—').slice(-8)}
+                      </span>
                     </div>
-                  )
-                })}
-              </div>
+                    <div style={{ fontSize: 13, color: text, paddingRight: 12 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isExp ? 'normal' : 'nowrap' }}>
+                        {log.query || '—'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: sub, paddingRight: 12 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isExp ? 'normal' : 'nowrap' }}>
+                        {log.response || '—'}
+                      </div>
+                    </div>
+                    <div><IntentBadge intent={log.intent} /></div>
+                  </div>
+                )
+              })}
             </>
           )}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 px-1">
-            <span className="text-xs" style={{ color: subtext }}>
-              {filtered.length} results · page {page} of {totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-30 transition-all hover:opacity-80"
-                style={{ background: cardBg, color: text, border: `1px solid ${border}` }}>
-                ← Prev
-              </button>
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-30 transition-all hover:opacity-80"
-                style={{ background: cardBg, color: text, border: `1px solid ${border}` }}>
-                Next →
-              </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+            <span style={{ fontSize: 12, color: sub }}>Page {page} of {totalPages}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[...Array(Math.min(totalPages, 7))].map((_, i) => {
+                const p = i + 1
+                return (
+                  <button key={p} onClick={() => setPage(p)} style={{
+                    width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
+                    background: page === p ? '#7c3aed' : inputBg,
+                    color: page === p ? '#fff' : text,
+                    fontWeight: page === p ? 700 : 400, fontSize: 13,
+                  }}>{p}</button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -310,12 +298,3 @@ export default function LogsPage({ dark }) {
     </div>
   )
 }
-
-// Demo data shown when backend is offline
-const DEMO_LOGS = [
-  { id: 1, created_at: new Date().toISOString(), user_id: 'user_abc123', query: 'What are the admission requirements?', response: 'For undergraduate admission you need FSc with at least 60% marks...', intent: 'admissions' },
-  { id: 2, created_at: new Date().toISOString(), user_id: 'user_def456', query: 'How much is the semester fee?', response: 'The semester fee for BS programs is PKR 45,000...', intent: 'fees' },
-  { id: 3, created_at: new Date(Date.now() - 86400000).toISOString(), user_id: 'user_ghi789', query: 'What courses are offered in CS?', response: 'The CS department offers BS, MS and PhD programs...', intent: 'courses' },
-  { id: 4, created_at: new Date(Date.now() - 86400000).toISOString(), user_id: 'user_jkl012', query: 'Is hostel available for female students?', response: 'Yes, GIFT University has separate hostels for male and female students...', intent: 'hostel' },
-  { id: 5, created_at: new Date(Date.now() - 172800000).toISOString(), user_id: 'user_mno345', query: 'Who is the head of the CS department?', response: 'The CS department is headed by Dr. Ahmed...', intent: 'faculty' },
-]

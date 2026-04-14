@@ -1,10 +1,15 @@
-export default function Waveform({ active }) {
-  if (!active) return null
+const HEIGHTS = [8, 16, 24, 32, 28, 20, 14, 22, 18, 10]
 
+export default function Waveform({ active }) {
+  if (!active) return <div style={{ height: 40 }} />
   return (
-    <div className="flex items-center justify-center gap-1 h-10 animate-fade-in">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.08}s` }} />
+    <div className="fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, height: 40 }}>
+      {HEIGHTS.map((h, i) => (
+        <div key={i} className="wave-bar" style={{
+          height: h,
+          animationDelay: `${i * 0.07}s`,
+          animationDuration: `${0.5 + (i % 3) * 0.15}s`,
+        }} />
       ))}
     </div>
   )
