@@ -18,7 +18,7 @@ class CallHandler:
         ctx = context_manager.get(user_id)
 
         tts.speak(
-            "Assalam o Alaikum! GIFT University mein khush aamdeed. "
+            "Assalam o Alaikum! Gift University mein khush aamdeed. "
             "Main aapka admission assistant hoon. Aap mujhse admission, "
             "programs, fees, ya kisi bhi cheez ke baare mein pooch sakte hain. "
             "Batayein, main aapki kya madad kar sakta hoon?"
