@@ -1,5 +1,5 @@
 -- ============================================
--- GIFT University - Seed Data
+-- Gift University - Seed Data
 -- ============================================
 
 -- Programs Data
