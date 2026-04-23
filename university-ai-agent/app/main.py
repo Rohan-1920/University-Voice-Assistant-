@@ -16,13 +16,19 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup():
-    """Preload RAG model at startup so first query is fast."""
+    """Preload RAG model + start auto-refresh scheduler at startup."""
     try:
         from rag.retriever import preload
         preload(config.DATABASE_URL)
         logger.info("RAG preloaded ✓")
     except Exception as e:
         logger.warning(f"RAG preload skipped: {e}")
+
+    try:
+        from rag.auto_refresh import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        logger.warning(f"RAG auto-refresh skipped: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():

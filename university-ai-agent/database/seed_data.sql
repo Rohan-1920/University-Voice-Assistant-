@@ -15,7 +15,7 @@ INSERT INTO programs (name, degree_type, category, duration, eligibility, descri
 -- BS Programs (After 12 Years)
 ('BS Computer Science', 'BS', 'undergraduate', '4 years', 'FSc / ICS / A-Levels (50% min)', 'Advanced study of programming, software engineering, and computer systems'),
 ('BS Software Engineering', 'BS', 'undergraduate', '4 years', 'FSc / ICS / A-Levels (50% min)', 'Software development methodologies, project management, and coding'),
-('BS Data Science', 'BS', 'undergraduate', '4 years', 'FSc / ICS / A-Levels (50% min)', 'Analyze and interpret complex data using statistical and computational methods'),
+('BS Data Analytics', 'BS', 'undergraduate', '4 years', 'FSc / ICS / A-Levels (50% min)', 'Analyze and interpret complex data using statistical and computational methods'),
 ('BS Artificial Intelligence', 'BS', 'undergraduate', '4 years', 'FSc / ICS / A-Levels (50% min)', 'Mathematics and AI technologies for data science and robotics'),
 ('BS Business Administration (BBA)', 'BS', 'undergraduate', '4 years', 'Intermediate (45% min)', 'Comprehensive business management and leadership program'),
 ('BS Accounting and Finance', 'BS', 'undergraduate', '4 years', 'Intermediate (45% min)', 'Financial reporting, auditing, and corporate finance'),

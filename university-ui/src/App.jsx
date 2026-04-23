@@ -3,6 +3,7 @@ import { useState } from 'react'
 import HomePage      from './pages/HomePage.jsx'
 import CallPage      from './pages/CallPage.jsx'
 import LogsPage      from './pages/LogsPage.jsx'
+import ChatPage      from './pages/ChatPage.jsx'
 
 // ── SVG Icons ────────────────────────────────────────────────────
 const HomeIcon = () => (
@@ -18,6 +19,12 @@ const MicIcon = () => (
     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
     <line x1="12" y1="19" x2="12" y2="23"/>
     <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>
+)
+
+const ChatIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
   </svg>
 )
 
@@ -53,6 +60,7 @@ const MoonIcon = () => (
 const NAV_LINKS = [
   { to: '/',           label: 'Home',       icon: <HomeIcon />,  end: true  },
   { to: '/call',       label: 'Call',       icon: <MicIcon />,   end: false },
+  { to: '/chat',       label: 'Chat',       icon: <ChatIcon />,  end: false },
   { to: '/statistics', label: 'Statistics', icon: <ChartIcon />, end: false },
 ]
 
@@ -147,6 +155,7 @@ export default function App() {
         <Routes>
           <Route path="/"           element={<HomePage   dark={dark} />} />
           <Route path="/call"       element={<CallPage   dark={dark} />} />
+          <Route path="/chat"       element={<ChatPage   dark={dark} />} />
           <Route path="/statistics" element={<LogsPage   dark={dark} />} />
         </Routes>
       </div>

@@ -29,8 +29,8 @@ def preload(db_url: str):
     # Load embedding model
     try:
         from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer("all-MiniLM-L6-v2")  # 384-dim, very fast
-        logger.info("RAG embedding model loaded (all-MiniLM-L6-v2)")
+        _model = SentenceTransformer("all-mpnet-base-v2")  # 768-dim — same as embedder
+        logger.info("RAG embedding model loaded (all-mpnet-base-v2)")
     except Exception as e:
         logger.warning(f"Could not load embedding model: {e}")
         _model = None
@@ -45,12 +45,12 @@ def preload(db_url: str):
 
 
 def _embed(text: str) -> Optional[List[float]]:
-    """Embed text using preloaded model — fast because model is already in RAM."""
+    """Embed text using preloaded model."""
     if _model is None:
         return None
     try:
         vec = _model.encode(text, normalize_embeddings=True)
-        # Pad 384-dim to 1536-dim to match schema
+        # Pad to 1536-dim to match schema (all-mpnet-base-v2 = 768-dim)
         padded = vec.tolist() + [0.0] * (1536 - len(vec))
         return padded
     except Exception as e:

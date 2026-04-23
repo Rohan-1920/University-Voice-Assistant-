@@ -34,27 +34,47 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
 def chunk_pages(pages: List[Dict]) -> List[Dict]:
     """
     Convert scraped pages into a flat list of chunks.
-
-    Each chunk dict:
-        source   : page category (e.g. "programs")
-        title    : page title
-        content  : chunk text
-        metadata : url, chunk_index
+    Handles both old format (source key) and new scraper format (url/type keys).
     """
     all_chunks = []
 
     for page in pages:
         chunks = chunk_text(page["text"])
 
+        # Derive source from URL or use existing source key
+        if "source" in page:
+            source = page["source"]
+        else:
+            url = page.get("url", "")
+            doc_type = page.get("type", "webpage")
+            # Extract meaningful source name from URL
+            if "programs" in url:    source = "programs"
+            elif "fee" in url:       source = "fee"
+            elif "admission" in url: source = "admissions"
+            elif "scholar" in url:   source = "scholarship"
+            elif "hostel" in url:    source = "hostel"
+            elif "transport" in url: source = "transport"
+            elif "faculty" in url:   source = "faculty"
+            elif "faq" in url:       source = "faq"
+            elif "contact" in url:   source = "contact"
+            elif "about" in url:     source = "about"
+            elif "facilit" in url:   source = "facilities"
+            elif "news" in url:      source = "news"
+            elif "event" in url:     source = "events"
+            elif "prospectus" in url or doc_type == "pdf": source = "prospectus"
+            elif "scholarship" in url: source = "scholarship"
+            else:                    source = "general"
+
         for i, chunk in enumerate(chunks):
             all_chunks.append({
-                "source":  page["source"],
-                "title":   page["title"],
+                "source":  source,
+                "title":   page.get("title", source),
                 "content": chunk,
                 "metadata": {
-                    "url":         page["url"],
-                    "chunk_index": i,
+                    "url":          page.get("url", ""),
+                    "chunk_index":  i,
                     "total_chunks": len(chunks),
+                    "type":         page.get("type", "webpage"),
                 }
             })
 

@@ -67,16 +67,14 @@ class AIBrain:
         logger.error(f"Groq failed after {MAX_RETRIES} attempts: {last_error}")
         return None
 
-    def process_query(self, query: str, context: str = "") -> Dict[str, str]:
+    def process_query(self, query: str, context: str = "", lang: str = "en") -> Dict[str, str]:
         """
-        Process query — target < 2s total:
-          - Intent: ~0.3s (small Groq call)
-          - RAG:    ~0.05s (preloaded model)
-          - LLM:    ~1.0s (120 tokens)
+        Process query — target < 2s total.
+        lang: 'ur' = respond in Urdu, 'en' = respond in English
         """
         t0 = time.time()
 
-        # Step 1: Intent (fast, 50 tokens)
+        # Step 1: Intent
         intent = intent_classifier.classify(query)
 
         # Step 2: Context — RAG if ready, else DB
@@ -90,12 +88,19 @@ class AIBrain:
         except Exception:
             knowledge = db.get_relevant_data(intent)
 
-        # Step 3: Generate response
+        # Step 3: Language instruction
+        lang_instruction = (
+            "IMPORTANT: The student spoke in URDU. You MUST reply in Urdu only (Urdu script or Roman Urdu). Do NOT reply in English or Hindi."
+            if lang == "ur" else
+            "IMPORTANT: The student spoke in ENGLISH. You MUST reply in English only."
+        )
+
+        # Step 4: Generate
         prompt = RESPONSE_GENERATION_PROMPT.format(
             db_context=knowledge,
             context=context,
             query=query,
-        )
+        ) + f"\n\n{lang_instruction}"
 
         ai_response = self._call_groq([
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -103,16 +108,13 @@ class AIBrain:
         ])
 
         elapsed = round(time.time() - t0, 2)
-        logger.info(f"Query processed in {elapsed}s | intent={intent}")
+        logger.info(f"Query processed in {elapsed}s | intent={intent} | lang={lang}")
 
         if ai_response:
             return {"intent": intent, "response": ai_response, "status": "success"}
 
-        return {
-            "intent":   intent,
-            "response": "Maafi chahta hoon, abhi kuch masla aa gaya. 055-111-GIFT-00 pe rabta karein.",
-            "status":   "error",
-        }
+        fallback = "Maafi chahta hoon, abhi kuch masla aa gaya. 055-111-GIFT-00 pe rabta karein." if lang == "ur" else "Sorry, something went wrong. Please call 055-111-GIFT-00."
+        return {"intent": intent, "response": fallback, "status": "error"}
 
 
 ai_brain = AIBrain()
