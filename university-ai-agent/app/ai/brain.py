@@ -16,6 +16,7 @@ import requests
 
 from app.core.config import config
 from app.ai.intent import intent_classifier
+from app.ai.language import detect_reply_language
 from app.ai.prompts import SYSTEM_PROMPT, RESPONSE_GENERATION_PROMPT
 from app.db.supabase import db
 
@@ -67,12 +68,14 @@ class AIBrain:
         logger.error(f"Groq failed after {MAX_RETRIES} attempts: {last_error}")
         return None
 
-    def process_query(self, query: str, context: str = "", lang: str = "en") -> Dict[str, str]:
+    def process_query(self, query: str, context: str = "", lang: Optional[str] = None) -> Dict[str, str]:
         """
         Process query — target < 2s total.
-        lang: 'ur' = respond in Urdu, 'en' = respond in English
+        lang: None = auto (mirror student's language); 'ur' / 'en' = force reply language
         """
         t0 = time.time()
+
+        effective_lang = lang if lang is not None else detect_reply_language(query)
 
         # Step 1: Intent
         intent = intent_classifier.classify(query)
@@ -88,11 +91,12 @@ class AIBrain:
         except Exception:
             knowledge = db.get_relevant_data(intent)
 
-        # Step 3: Language instruction
+        # Step 3: Language instruction (must match effective_lang — default used to wrongly force English)
         lang_instruction = (
-            "IMPORTANT: The student spoke in URDU. You MUST reply in Urdu only (Urdu script or Roman Urdu). Do NOT reply in English or Hindi."
-            if lang == "ur" else
-            "IMPORTANT: The student spoke in ENGLISH. You MUST reply in English only."
+            "IMPORTANT: The student spoke in URDU. Reply ONLY in Urdu script or Roman Urdu — never English or Hindi/Devanagari. "
+            "If Additional data / database context below is in English, translate those facts into Urdu in your answer."
+            if effective_lang == "ur"
+            else "IMPORTANT: The student spoke in ENGLISH. You MUST reply in English only."
         )
 
         # Step 4: Generate
@@ -108,12 +112,16 @@ class AIBrain:
         ])
 
         elapsed = round(time.time() - t0, 2)
-        logger.info(f"Query processed in {elapsed}s | intent={intent} | lang={lang}")
+        logger.info(f"Query processed in {elapsed}s | intent={intent} | lang={effective_lang}")
 
         if ai_response:
             return {"intent": intent, "response": ai_response, "status": "success"}
 
-        fallback = "Maafi chahta hoon, abhi kuch masla aa gaya. 055-111-GIFT-00 pe rabta karein." if lang == "ur" else "Sorry, something went wrong. Please call 055-111-GIFT-00."
+        fallback = (
+            "Maafi chahta hoon, abhi kuch masla aa gaya. 055-111-GIFT-00 pe rabta karein."
+            if effective_lang == "ur"
+            else "Sorry, something went wrong. Please call 055-111-GIFT-00."
+        )
         return {"intent": intent, "response": fallback, "status": "error"}
 
 

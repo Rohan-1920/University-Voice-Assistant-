@@ -8,7 +8,6 @@ Endpoints:
 """
 
 import io
-import re
 import requests
 from fastapi import APIRouter, UploadFile, File, Form, Request
 from fastapi.responses import StreamingResponse
@@ -17,6 +16,7 @@ from typing import Optional
 from app.core.config import config
 from app.core.logger import logger
 from app.ai.brain import ai_brain
+from app.ai.language import URDU_SCRIPT, detect_reply_language
 from app.memory.context import context_manager
 from app.db.supabase import db
 
@@ -24,50 +24,6 @@ router = APIRouter(prefix="/demo", tags=["Demo"])
 
 GROQ_STT_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 GROQ_TTS_URL = "https://api.groq.com/openai/v1/audio/speech"
-
-# Urdu Unicode range check
-URDU_PATTERN = re.compile(r'[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]')
-
-
-def detect_language(text: str) -> str:
-    """
-    Detect if text is Urdu or English.
-    Returns 'ur' for Urdu/Roman-Urdu, 'en' for English.
-    """
-    if not text:
-        return 'en'
-
-    # If Urdu script characters found → definitely Urdu
-    if URDU_PATTERN.search(text):
-        return 'ur'
-
-    # Pure Roman Urdu words (NOT shared with English)
-    roman_urdu_only = [
-        'kya', 'hai', 'hain', 'mujhe', 'mera', 'meri', 'aap', 'ap',
-        'kaise', 'kahan', 'kab', 'kyun', 'kaun', 'kitna', 'kitni',
-        'chahiye', 'chahta', 'chahti', 'batao', 'bata',
-        'nahi', 'nahin', 'hoga', 'hogi', 'wala', 'wali',
-        'mein', 'se', 'ko', 'ne', 'par', 'pe', 'tak',
-        'aur', 'ya', 'lekin', 'magar', 'phir', 'toh',
-        'shukriya', 'shukria', 'meherbani', 'janab', 'sahib',
-        'karo', 'karna', 'karein', 'karoon', 'karta', 'karti',
-        'dena', 'dein', 'dijiye', 'batana', 'samjhao',
-        'hona', 'hoti', 'hota', 'tha', 'thi', 'the',
-        'woh', 'yeh', 'ye', 'is', 'us', 'in', 'un',
-        'bhi', 'sirf', 'bas', 'abhi', 'phir', 'agar',
-    ]
-
-    words = text.lower().split()
-    if not words:
-        return 'en'
-
-    urdu_count = sum(1 for w in words if w in roman_urdu_only)
-
-    # Need at least 2 Urdu words OR >30% of words to be Urdu
-    if urdu_count >= 2 or (len(words) > 0 and urdu_count / len(words) > 0.3):
-        return 'ur'
-
-    return 'en'
 
 
 def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> tuple[str, str]:
@@ -100,7 +56,7 @@ def transcribe_audio(audio_bytes: bytes, filename: str = "audio.webm") -> tuple[
             # Map to our codes
             lang = "ur" if whisper_lang in ("urdu", "ur", "hindi") else "en"
             # Override with our own detection if Urdu script found
-            if URDU_PATTERN.search(text):
+            if URDU_SCRIPT.search(text):
                 lang = "ur"
             logger.info(f"STT: '{text[:60]}' | whisper_lang={whisper_lang} | final_lang={lang}")
             return text, lang
@@ -183,7 +139,7 @@ async def chat(request: Request):
         if not message:
             return {"response": "Please type a message.", "intent": "unknown", "lang": "en"}
 
-        lang   = detect_language(message)
+        lang   = detect_reply_language(message)
         ctx    = context_manager.get(user_id)
         ctx.add_message("user", message)
         result = ai_brain.process_query(message, ctx.get_context_string(), lang=lang)
